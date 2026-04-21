@@ -1,26 +1,17 @@
-/*
- * To change this license header, choose License Headers in Project Properties.
- * To change this template file, choose Tools | Templates
- * and open the template in the editor.
- */
-package main;
-
 import java.util.ArrayList;
 
 /**
- *
  * @author Douglas
  */
 public class Node {
-    
-    private char origin;
-    private char dest;
-    private boolean turn; //TRUE - white; FALSE - black;
-    private char[][] matrix;
+
+    private Tabuleiro.Jogada jogada;
+    private boolean turn; // TRUE - white; FALSE - black;
+    private Tabuleiro tabuleiro;
     private int minMax;
     private ArrayList<Node> children;
-    
-    public Node () {
+
+    public Node() {
         this.children = new ArrayList<>();
         this.minMax = Integer.MIN_VALUE;
     }
@@ -32,31 +23,21 @@ public class Node {
     public void setMinMax(int minMax) {
         this.minMax = minMax;
     }
-    
-    
-    
-    public ArrayList<Node> getChild (){
+
+    public ArrayList<Node> getChild() {
         return this.children;
     }
-    
-    public void addChild (Node child){
+
+    public void addChild(Node child) {
         this.children.add(child);
     }
-    
-    public char getOrigin() {
-        return origin;
+
+    public Tabuleiro.Jogada getJogada() {
+        return jogada;
     }
 
-    public void setOrigin(char origin) {
-        this.origin = origin;
-    }
-
-    public char getDest() {
-        return dest;
-    }
-
-    public void setDest(char dest) {
-        this.dest = dest;
+    public void setJogada(Tabuleiro.Jogada jogada) {
+        this.jogada = jogada;
     }
 
     public boolean isTurn() {
@@ -67,14 +48,11 @@ public class Node {
         this.turn = turn;
     }
 
-    public char[][] getMatrix() {
-        return matrix;
+    public Tabuleiro getTabuleiro() {
+        return tabuleiro;
     }
 
-    public void setMatrix(char[][] matrix) {
-        this.matrix = matrix;
+    public void setTabuleiro(Tabuleiro tabuleiro) {
+        this.tabuleiro = tabuleiro;
     }
-    
-    
-    
 }
