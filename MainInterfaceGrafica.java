@@ -1,7 +1,8 @@
-package main;
+
 
 import javax.swing.*;
 import java.awt.*;
+import java.util.Scanner;
 
 /**
  * @author Douglas
@@ -16,7 +17,7 @@ public final class MainInterfaceGrafica extends JFrame {
         Brancas: 1
         Pretas: 2
         Damas: 3 (branca) ou 4 (preta)
-    
+
         -> REGRAS DO JOGO
 
             - DEFINIR QUEM UTILIZARÁ AS PEÇAS BRANCAS (COMEÇA O JOGO)
@@ -27,22 +28,27 @@ public final class MainInterfaceGrafica extends JFrame {
             - A DAMA PODE ANDAR INFINITAS CASAS, RESPEITANDO O LIMITE DO TABULEIRO
             - A DAMA PODE COMER PRA TRÁS
             - A DAMA PODE COMER MÚLTIPLAS PEÇAS
-            - A PEÇA A SER COMIDA PELA DAMA INDICA A POSIÇÃO QUE A DAMA DEVERÁ PARAR 
+            - A PEÇA A SER COMIDA PELA DAMA INDICA A POSIÇÃO QUE A DAMA DEVERÁ PARAR
             (POSIÇÃO SUBSEQUENTE NA DIREÇÃO DA COMIDA)
             - NA IMPOSSIBILIDADE DE EFETUAR JOGADAS, O JOGADOR TRAVADO PERDE O JOGO
-    
-    
+
+
             => SE EXISTIREM SOMENTE DUAS DAMAS E NÃO FOR POSSÍVEL COMER, ENTÃO EMPATE
      */
     private final Tabuleiro tabuleiroLogico;
     private int linhaOrigem = -1, colOrigem = -1;
+    private int dificuldade;
+    private boolean iaJogaComBrancas;
+    private boolean turnoBrancas = true; // brancas começam
 
-    public MainInterfaceGrafica() {
+    public MainInterfaceGrafica(int dificuldade, boolean iaJogaComBrancas) {
 
         /*
             TABULEIRO DO JOGO
          */
         tabuleiroLogico = new Tabuleiro();
+        this.dificuldade = dificuldade;
+        this.iaJogaComBrancas = iaJogaComBrancas;
 
         setTitle("DISCIPLINA - IA - MINI JOGO DE DAMA");
         setSize(800, 800);
@@ -53,6 +59,10 @@ public final class MainInterfaceGrafica extends JFrame {
         sincronizarInterface();
 
         setVisible(true);
+
+        if (this.iaJogaComBrancas) {
+            jogadaDaIA();
+        }
     }
 
     private void inicializarComponentes() {
@@ -76,7 +86,7 @@ public final class MainInterfaceGrafica extends JFrame {
 
         /*
             CRIAÇÃO DA ÁRVORE
-        
+
             - PARA O ESTADO DO TABULEIRO, VERIFICAR JOGADAS POSSÍVEIS;
             - PARA CADA JOGADA POSSÍVEL, CRIA UM NOVO NÓ;
             - ADICIONAMOS OS NÓS NA ÁRVORE;
@@ -100,6 +110,47 @@ public final class MainInterfaceGrafica extends JFrame {
          */
     }
 
+    private int minimo(java.util.ArrayList<Node> nodes) {
+        int min = Integer.MAX_VALUE;
+        for (Node n : nodes) {
+            if (n.getMinMax() < min) min = n.getMinMax();
+        }
+        return min;
+    }
+
+    private int maximo(java.util.ArrayList<Node> nodes) {
+        int max = Integer.MIN_VALUE;
+        for (Node n : nodes) {
+            if (n.getMinMax() > max) max = n.getMinMax();
+        }
+        return max;
+    }
+
+    private int aplicarHeuristicaVerificacaoGanhador(Node node) {
+        if (node.getTabuleiro().jogoAcabou()) {
+            if (node.getTabuleiro().isEmpate()) return 0;
+            return node.isTurn() == iaJogaComBrancas ? -1000 : 1000;
+        }
+
+        int placarIA = 0;
+        int placarUsuario = 0;
+        char[][] matriz = node.getTabuleiro().getMatriz();
+
+        for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 6; j++) {
+                char p = matriz[i][j];
+                if (p == '0') continue;
+                boolean ehBranca = (p == '1' || p == '3');
+                int valor = (p == '3' || p == '4') ? 5 : 1;
+
+                if (ehBranca == iaJogaComBrancas) placarIA += valor;
+                else placarUsuario += valor;
+            }
+        }
+
+        return placarIA - placarUsuario;
+    }
+
     private void minMaxJogoDama(Node node) {
 
         if (node.getChild().isEmpty()) {
@@ -109,7 +160,7 @@ public final class MainInterfaceGrafica extends JFrame {
              */
             int minMax = aplicarHeuristicaVerificacaoGanhador(node);
             node.setMinMax(minMax);
-            
+
         } else {
 
             for (int i = 0; i < node.getChild().size(); i++) {
@@ -118,11 +169,11 @@ public final class MainInterfaceGrafica extends JFrame {
                     minMaxJogoDama (child);
                 }
             }
-            
+
             /*
                 jogada das brancas - branca é o usuário
              */
-            if (node.isTurn()) {
+            if (node.isTurn() != iaJogaComBrancas) {
                 int min = minimo(node.getChild());
                 node.setMinMax(min);
             } /*
@@ -139,12 +190,16 @@ public final class MainInterfaceGrafica extends JFrame {
 
         // Caso 1: Nenhuma peça selecionada ainda
         if (linhaOrigem == -1) {
+            if (iaJogaComBrancas == turnoBrancas) return; // turno da IA
 
-            // Verifica se a casa clicada contém QUALQUER peça (1, 2, 3 ou 4)
-            if (tabuleiroLogico.getMatriz()[linha][col] != '0') {
-                linhaOrigem = linha;
-                colOrigem = col;
-                tabuleiroInterface[linha][col].setBackground(Color.YELLOW); // Destaque do clique
+            char peca = tabuleiroLogico.getMatriz()[linha][col];
+            if (peca != '0') {
+                boolean ehBranca = (peca == '1' || peca == '3');
+                if (ehBranca == turnoBrancas) {
+                    linhaOrigem = linha;
+                    colOrigem = col;
+                    tabuleiroInterface[linha][col].setBackground(Color.YELLOW); // Destaque do clique
+                }
             }
         } // Caso 2: Já existe uma peça selecionada, tentando mover
         else {
@@ -160,6 +215,12 @@ public final class MainInterfaceGrafica extends JFrame {
             if (sucesso) {
                 cancelarSelecao();
                 sincronizarInterface();
+                turnoBrancas = !turnoBrancas;
+                if (tabuleiroLogico.jogoAcabou()) {
+                    JOptionPane.showMessageDialog(this, "Fim de Jogo!");
+                } else if (iaJogaComBrancas == turnoBrancas) {
+                    SwingUtilities.invokeLater(this::jogadaDaIA);
+                }
 
                 /*
                     VERIFICAÇÃO DE QUEM É A VEZ DE JOGAR E IMPLEMENTAÇÃO DA JOGADA DA IA
@@ -181,29 +242,115 @@ public final class MainInterfaceGrafica extends JFrame {
     }
 
     private boolean moverPecaLogica(int r1, int c1, int r2, int c2) {
-
-        // A casa de destino deve estar vazia
-        if (tabuleiroLogico.getMatriz()[r2][c2] == '0') {
-
-            // Transfere o valor (seja 1, 2, 3 ou 4) para a nova posição
-            tabuleiroLogico.getMatriz()[r2][c2] = tabuleiroLogico.getMatriz()[r1][c1];
-            tabuleiroLogico.getMatriz()[r1][c1] = '0';
-
-            // Promoção simples para Dama (opcional)
-            if (tabuleiroLogico.getMatriz()[r2][c2] == '2' && r2 == 5) {
-                tabuleiroLogico.getMatriz()[r2][c2] = '4';
+        java.util.List<Tabuleiro.Jogada> possiveis = tabuleiroLogico.getJogadasPossiveis(turnoBrancas);
+        for (Tabuleiro.Jogada j : possiveis) {
+            if (j.r1 == r1 && j.c1 == c1 && j.r2 == r2 && j.c2 == c2) {
+                tabuleiroLogico.fazerMovimento(j);
+                return true;
             }
-            if (tabuleiroLogico.getMatriz()[r2][c2] == '1' && r2 == 0) {
-                tabuleiroLogico.getMatriz()[r2][c2] = '3';
-            }
-
-            return true;
         }
         return false;
     }
 
+    private void construirArvore(Node node, int nivelAtual) {
+        if (nivelAtual >= 10 || node.getTabuleiro().jogoAcabou()) {
+            return;
+        }
+        java.util.List<Tabuleiro.Jogada> jogadas = node.getTabuleiro().getJogadasPossiveis(node.isTurn());
+        if (jogadas.isEmpty()) return;
+
+        if (nivelAtual <= dificuldade) {
+            for (Tabuleiro.Jogada j : jogadas) {
+                Node child = new Node();
+                child.setJogada(j);
+                child.setTurn(!node.isTurn());
+                Tabuleiro childTab = node.getTabuleiro().clone();
+                childTab.fazerMovimento(j);
+                child.setTabuleiro(childTab);
+                node.addChild(child);
+                construirArvore(child, nivelAtual + 1);
+            }
+        } else {
+            // Jogadas aleatórias
+            Tabuleiro.Jogada j = jogadas.get(new java.util.Random().nextInt(jogadas.size()));
+            Node child = new Node();
+            child.setJogada(j);
+            child.setTurn(!node.isTurn());
+            Tabuleiro childTab = node.getTabuleiro().clone();
+            childTab.fazerMovimento(j);
+            child.setTabuleiro(childTab);
+            node.addChild(child);
+            construirArvore(child, nivelAtual + 1);
+        }
+    }
+
+    private void jogadaDaIA() {
+        if (tabuleiroLogico.jogoAcabou()) return;
+
+        Node root = new Node();
+        root.setTabuleiro(tabuleiroLogico.clone());
+        root.setTurn(iaJogaComBrancas);
+
+        construirArvore(root, 1);
+
+        if (!root.getChild().isEmpty()) {
+            for (Node child : root.getChild()) {
+                minMaxJogoDama(child);
+            }
+
+            Node melhorNo = null;
+            int melhorValor = Integer.MIN_VALUE;
+            java.util.List<Node> melhores = new java.util.ArrayList<>();
+
+            for (Node child : root.getChild()) {
+                if (child.getMinMax() > melhorValor) {
+                    melhorValor = child.getMinMax();
+                    melhores.clear();
+                    melhores.add(child);
+                } else if (child.getMinMax() == melhorValor) {
+                    melhores.add(child);
+                }
+            }
+
+            if (!melhores.isEmpty()) {
+                melhorNo = melhores.get(new java.util.Random().nextInt(melhores.size()));
+                tabuleiroLogico.fazerMovimento(melhorNo.getJogada());
+                sincronizarInterface();
+                turnoBrancas = !turnoBrancas;
+                if (tabuleiroLogico.jogoAcabou()) {
+                    JOptionPane.showMessageDialog(this, "Fim de Jogo!");
+                }
+            }
+        }
+    }
+
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(MainInterfaceGrafica::new);
+        Scanner scanner = new Scanner(System.in);
+        int dif = -1;
+        while (dif < 1 || dif > 9) {
+            System.out.print("Escolha a dificuldade (1 a 9): ");
+            if (scanner.hasNextInt()) {
+                dif = scanner.nextInt();
+            } else {
+                scanner.next();
+            }
+        }
+        boolean iaBrancas = false;
+        int escolha = 0;
+        while (escolha != 1 && escolha != 2) {
+            System.out.print("Quem jogara com as brancas (comeca o jogo)? (1 - Usuario, 2 - IA): ");
+            if (scanner.hasNextInt()) {
+                escolha = scanner.nextInt();
+            } else {
+                scanner.next();
+            }
+        }
+        if (escolha == 2) {
+            iaBrancas = true;
+        }
+        final int finalDif = dif;
+        final boolean finalIaBrancas = iaBrancas;
+        SwingUtilities.invokeLater(() -> new MainInterfaceGrafica(finalDif, finalIaBrancas));
     }
 
     /*
