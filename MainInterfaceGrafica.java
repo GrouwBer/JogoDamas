@@ -126,31 +126,101 @@ public final class MainInterfaceGrafica extends JFrame {
         return max;
     }
 
-    private int aplicarHeuristicaVerificacaoGanhador(Node node) {
-        if (node.getTabuleiro().jogoAcabou()) {
-            if (node.getTabuleiro().isEmpate()) return 0;
-            return node.isTurn() == iaJogaComBrancas ? -1000 : 1000;
+private int aplicarHeuristicaVerificacaoGanhador(Node node) {
+    Tabuleiro tab = node.getTabuleiro();
+
+    // ==========================================================
+    // FASE 1: VERIFICAÇÃO DE FIM DE JOGO (Xeque-Mate)
+    // ==========================================================
+    if (tab.jogoAcabou()) {
+        if (tab.isEmpate()) return 0;
+        
+        // Descobre com precisão quem ficou sem jogadas
+        boolean brancasSemJogadas = tab.getJogadasPossiveis(true).isEmpty();
+        boolean pretasSemJogadas = tab.getJogadasPossiveis(false).isEmpty();
+        
+        if (brancasSemJogadas) {
+            // Pretas ganharam. Se a IA for preta, pontuação máxima. Se for branca, pontuação mínima.
+            return iaJogaComBrancas ? -1000000 : 1000000;
+        } else if (pretasSemJogadas) {
+            // Brancas ganharam.
+            return iaJogaComBrancas ? 1000000 : -1000000;
         }
-
-        int placarIA = 0;
-        int placarUsuario = 0;
-        char[][] matriz = node.getTabuleiro().getMatriz();
-
-        for (int i = 0; i < 6; i++) {
-            for (int j = 0; j < 6; j++) {
-                char p = matriz[i][j];
-                if (p == '0') continue;
-                boolean ehBranca = (p == '1' || p == '3');
-                int valor = (p == '3' || p == '4') ? 5 : 1;
-
-                if (ehBranca == iaJogaComBrancas) placarIA += valor;
-                else placarUsuario += valor;
-            }
-        }
-
-        return placarIA - placarUsuario;
     }
 
+    // ==========================================================
+    // FASE 2: AVALIAÇÃO DO TABULEIRO (Material e Posição)
+    // ==========================================================
+    int pontuacaoBrancas = 0;
+    int pontuacaoPretas = 0;
+    char[][] matriz = tab.getMatriz();
+
+    for (int linha = 0; linha < 6; linha++) {
+        for (int col = 0; col < 6; col++) {
+            char peca = matriz[linha][col];
+            if (peca == '0') continue; // Casa vazia
+
+            boolean ehBranca = (peca == '1' || peca == '3');
+            boolean ehDama = (peca == '3' || peca == '4');
+            
+            int valorPeca = 0;
+
+            if (ehDama) {
+                // MATERIAL: Dama vale muito (equivale a 4 peões)
+                valorPeca = 4000; 
+                
+                // POSIÇÃO: Dama no centro de um tabuleiro 6x6 é letal
+                if ((linha == 2 || linha == 3) && (col == 2 || col == 3)) {
+                    valorPeca += 150;
+                } 
+                // POSIÇÃO: Dama nas bordas perde metade do poder de fogo
+                else if (linha == 0 || linha == 5 || col == 0 || col == 5) {
+                    valorPeca -= 50;
+                }
+            } else {
+                // MATERIAL: Peão base
+                valorPeca = 1000; 
+                
+                // CÁLCULO DE AVANÇO (0 é a linha de base, 5 é a coroação)
+                int avanco = ehBranca ? (5 - linha) : linha;
+                
+                // POSIÇÃO: Progresso constante para virar Dama (+20 por casa)
+                valorPeca += (avanco * 20);
+                
+                // POSIÇÃO: Defesa da Base (Essencial no 6x6 para evitar Damas inimigas)
+                if (avanco == 0) {
+                    valorPeca += 100;
+                }
+                
+                // POSIÇÃO: Porto Seguro (Nas laterais 0 e 5, a peça não pode ser comida)
+                if (col == 0 || col == 5) {
+                    valorPeca += 50;
+                }
+                // POSIÇÃO: Controle do Centro (Incentiva briga no meio se a peça estiver avançada)
+                else if ((col == 2 || col == 3) && avanco > 2) {
+                    valorPeca += 30;
+                }
+            }
+
+            // Atribui o valor calculado para o time correto
+            if (ehBranca) {
+                pontuacaoBrancas += valorPeca;
+            } else {
+                pontuacaoPretas += valorPeca;
+            }
+        }
+    }
+
+    // ==========================================================
+    // FASE 3: PERSPECTIVA DA IA
+    // ==========================================================
+    // O Minimax sempre busca maximizar a pontuação de quem está jogando (A IA).
+    if (iaJogaComBrancas) {
+        return pontuacaoBrancas - pontuacaoPretas;
+    } else {
+        return pontuacaoPretas - pontuacaoBrancas;
+    }
+}
     private void minMaxJogoDama(Node node) {
 
         if (node.getChild().isEmpty()) {
@@ -185,8 +255,7 @@ public final class MainInterfaceGrafica extends JFrame {
         }
 
     }
-
-    private void tratarClique(int linha, int col) {
+private void tratarClique(int linha, int col) {
 
         // Caso 1: Nenhuma peça selecionada ainda
         if (linhaOrigem == -1) {
@@ -198,7 +267,26 @@ public final class MainInterfaceGrafica extends JFrame {
                 if (ehBranca == turnoBrancas) {
                     linhaOrigem = linha;
                     colOrigem = col;
-                    tabuleiroInterface[linha][col].setBackground(Color.YELLOW); // Destaque do clique
+                    
+                    // Pinta a peça selecionada de amarelo
+                    tabuleiroInterface[linha][col].setBackground(Color.YELLOW); 
+
+                    // Busca as jogadas obrigatórias/possíveis
+                    java.util.List<Tabuleiro.Jogada> possiveis = tabuleiroLogico.getJogadasPossiveis(turnoBrancas);
+                    boolean temMovimentoValido = false;
+
+                    // Pinta de Azul Claro (Ciano) todos os destinos válidos PARA ESTA PEÇA
+                    for (Tabuleiro.Jogada j : possiveis) {
+                        if (j.r1 == linha && j.c1 == col) {
+                            tabuleiroInterface[j.r2][j.c2].setBackground(Color.CYAN); 
+                            temMovimentoValido = true;
+                        }
+                    }
+
+                    // Se o jogador clicou em uma peça que não pode se mover (porque outra é obrigada a comer)
+                    if (!temMovimentoValido) {
+                        cancelarSelecao();
+                    }
                 }
             }
         } // Caso 2: Já existe uma peça selecionada, tentando mover
@@ -221,24 +309,27 @@ public final class MainInterfaceGrafica extends JFrame {
                 } else if (iaJogaComBrancas == turnoBrancas) {
                     SwingUtilities.invokeLater(this::jogadaDaIA);
                 }
-
-                /*
-                    VERIFICAÇÃO DE QUEM É A VEZ DE JOGAR E IMPLEMENTAÇÃO DA JOGADA DA IA
-                 */
             } else {
-                // Se o movimento for inválido (ex: clicar em cima de outra peça)
+                // Se o movimento for inválido (ex: clicar em cima de outra peça ou destino errado)
                 cancelarSelecao();
             }
         }
     }
 
     private void cancelarSelecao() {
-        if (linhaOrigem != -1) {
-            // Restaura a cor original
-            tabuleiroInterface[linhaOrigem][colOrigem].setBackground(new Color(119, 149, 86));
-        }
         linhaOrigem = -1;
         colOrigem = -1;
+        
+        // Restaura as cores originais de todo o tabuleiro para apagar os rastros azuis e amarelos
+        for (int i = 0; i < TAMANHO; i++) {
+            for (int j = 0; j < TAMANHO; j++) {
+                if ((i + j) % 2 == 0) {
+                    tabuleiroInterface[i][j].setBackground(new Color(235, 235, 208)); // Bege
+                } else {
+                    tabuleiroInterface[i][j].setBackground(new Color(119, 149, 86));  // Verde
+                }
+            }
+        }
     }
 
     private boolean moverPecaLogica(int r1, int c1, int r2, int c2) {
@@ -253,33 +344,27 @@ public final class MainInterfaceGrafica extends JFrame {
     }
 
     private void construirArvore(Node node, int nivelAtual) {
-        if (nivelAtual >= 10 || node.getTabuleiro().jogoAcabou()) {
+        
+        // 1. Condição de parada rigorosa na Dificuldade escolhida pelo usuário.
+        if (nivelAtual >= dificuldade || node.getTabuleiro().jogoAcabou()) {
             return;
         }
+
         java.util.List<Tabuleiro.Jogada> jogadas = node.getTabuleiro().getJogadasPossiveis(node.isTurn());
         if (jogadas.isEmpty()) return;
 
-        if (nivelAtual <= dificuldade) {
-            for (Tabuleiro.Jogada j : jogadas) {
-                Node child = new Node();
-                child.setJogada(j);
-                child.setTurn(!node.isTurn());
-                Tabuleiro childTab = node.getTabuleiro().clone();
-                childTab.fazerMovimento(j);
-                child.setTabuleiro(childTab);
-                node.addChild(child);
-                construirArvore(child, nivelAtual + 1);
-            }
-        } else {
-            // Jogadas aleatórias
-            Tabuleiro.Jogada j = jogadas.get(new java.util.Random().nextInt(jogadas.size()));
+        // 2. Percorre todas as jogadas reais e constrói a árvore (O BLOCO ALEATÓRIO FOI EXCLUÍDO)
+        for (Tabuleiro.Jogada j : jogadas) {
             Node child = new Node();
             child.setJogada(j);
-            child.setTurn(!node.isTurn());
+            child.setTurn(!node.isTurn()); // Alterna o turno
+            
             Tabuleiro childTab = node.getTabuleiro().clone();
             childTab.fazerMovimento(j);
             child.setTabuleiro(childTab);
+            
             node.addChild(child);
+            
             construirArvore(child, nivelAtual + 1);
         }
     }
@@ -291,7 +376,7 @@ public final class MainInterfaceGrafica extends JFrame {
         root.setTabuleiro(tabuleiroLogico.clone());
         root.setTurn(iaJogaComBrancas);
 
-        construirArvore(root, 1);
+        construirArvore(root, 0);
 
         if (!root.getChild().isEmpty()) {
             for (Node child : root.getChild()) {
