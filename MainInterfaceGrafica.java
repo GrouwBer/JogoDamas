@@ -129,28 +129,18 @@ public final class MainInterfaceGrafica extends JFrame {
 private int aplicarHeuristicaVerificacaoGanhador(Node node) {
     Tabuleiro tab = node.getTabuleiro();
 
-    // ==========================================================
-    // FASE 1: VERIFICAÇÃO DE FIM DE JOGO (Xeque-Mate)
-    // ==========================================================
     if (tab.jogoAcabou()) {
         if (tab.isEmpate()) return 0;
         
-        // Descobre com precisão quem ficou sem jogadas
         boolean brancasSemJogadas = tab.getJogadasPossiveis(true).isEmpty();
         boolean pretasSemJogadas = tab.getJogadasPossiveis(false).isEmpty();
         
         if (brancasSemJogadas) {
-            // Pretas ganharam. Se a IA for preta, pontuação máxima. Se for branca, pontuação mínima.
             return iaJogaComBrancas ? -1000000 : 1000000;
         } else if (pretasSemJogadas) {
-            // Brancas ganharam.
             return iaJogaComBrancas ? 1000000 : -1000000;
         }
     }
-
-    // ==========================================================
-    // FASE 2: AVALIAÇÃO DO TABULEIRO (Material e Posição)
-    // ==========================================================
     int pontuacaoBrancas = 0;
     int pontuacaoPretas = 0;
     char[][] matriz = tab.getMatriz();
@@ -166,43 +156,27 @@ private int aplicarHeuristicaVerificacaoGanhador(Node node) {
             int valorPeca = 0;
 
             if (ehDama) {
-                // MATERIAL: Dama vale muito (equivale a 4 peões)
                 valorPeca = 4000; 
-                
-                // POSIÇÃO: Dama no centro de um tabuleiro 6x6 é letal
                 if ((linha == 2 || linha == 3) && (col == 2 || col == 3)) {
                     valorPeca += 150;
                 } 
-                // POSIÇÃO: Dama nas bordas perde metade do poder de fogo
                 else if (linha == 0 || linha == 5 || col == 0 || col == 5) {
                     valorPeca -= 50;
                 }
             } else {
-                // MATERIAL: Peão base
                 valorPeca = 1000; 
-                
-                // CÁLCULO DE AVANÇO (0 é a linha de base, 5 é a coroação)
                 int avanco = ehBranca ? (5 - linha) : linha;
-                
-                // POSIÇÃO: Progresso constante para virar Dama (+20 por casa)
                 valorPeca += (avanco * 20);
-                
-                // POSIÇÃO: Defesa da Base (Essencial no 6x6 para evitar Damas inimigas)
                 if (avanco == 0) {
                     valorPeca += 100;
                 }
-                
-                // POSIÇÃO: Porto Seguro (Nas laterais 0 e 5, a peça não pode ser comida)
                 if (col == 0 || col == 5) {
                     valorPeca += 50;
                 }
-                // POSIÇÃO: Controle do Centro (Incentiva briga no meio se a peça estiver avançada)
                 else if ((col == 2 || col == 3) && avanco > 2) {
                     valorPeca += 30;
                 }
             }
-
-            // Atribui o valor calculado para o time correto
             if (ehBranca) {
                 pontuacaoBrancas += valorPeca;
             } else {
@@ -211,10 +185,6 @@ private int aplicarHeuristicaVerificacaoGanhador(Node node) {
         }
     }
 
-    // ==========================================================
-    // FASE 3: PERSPECTIVA DA IA
-    // ==========================================================
-    // O Minimax sempre busca maximizar a pontuação de quem está jogando (A IA).
     if (iaJogaComBrancas) {
         return pontuacaoBrancas - pontuacaoPretas;
     } else {
@@ -225,9 +195,6 @@ private int aplicarHeuristicaVerificacaoGanhador(Node node) {
 
         if (node.getChild().isEmpty()) {
 
-            /*
-                RETURN MIN OU MAX
-             */
             int minMax = aplicarHeuristicaVerificacaoGanhador(node);
             node.setMinMax(minMax);
 
@@ -240,15 +207,11 @@ private int aplicarHeuristicaVerificacaoGanhador(Node node) {
                 }
             }
 
-            /*
-                jogada das brancas - branca é o usuário
-             */
             if (node.isTurn() != iaJogaComBrancas) {
                 int min = minimo(node.getChild());
                 node.setMinMax(min);
-            } /*
-            jogada das pretas - preta é a IA
-             */ else {
+            }
+                else {
                 int max = maximo(node.getChild());
                 node.setMinMax(max);
             }
@@ -257,9 +220,8 @@ private int aplicarHeuristicaVerificacaoGanhador(Node node) {
     }
 private void tratarClique(int linha, int col) {
 
-        // Caso 1: Nenhuma peça selecionada ainda
         if (linhaOrigem == -1) {
-            if (iaJogaComBrancas == turnoBrancas) return; // turno da IA
+            if (iaJogaComBrancas == turnoBrancas) return;
 
             char peca = tabuleiroLogico.getMatriz()[linha][col];
             if (peca != '0') {
@@ -267,15 +229,11 @@ private void tratarClique(int linha, int col) {
                 if (ehBranca == turnoBrancas) {
                     linhaOrigem = linha;
                     colOrigem = col;
-                    
-                    // Pinta a peça selecionada de amarelo
                     tabuleiroInterface[linha][col].setBackground(Color.YELLOW); 
 
-                    // Busca as jogadas obrigatórias/possíveis
                     java.util.List<Tabuleiro.Jogada> possiveis = tabuleiroLogico.getJogadasPossiveis(turnoBrancas);
                     boolean temMovimentoValido = false;
 
-                    // Pinta de Azul Claro (Ciano) todos os destinos válidos PARA ESTA PEÇA
                     for (Tabuleiro.Jogada j : possiveis) {
                         if (j.r1 == linha && j.c1 == col) {
                             tabuleiroInterface[j.r2][j.c2].setBackground(Color.CYAN); 
@@ -283,16 +241,13 @@ private void tratarClique(int linha, int col) {
                         }
                     }
 
-                    // Se o jogador clicou em uma peça que não pode se mover (porque outra é obrigada a comer)
                     if (!temMovimentoValido) {
                         cancelarSelecao();
                     }
                 }
             }
-        } // Caso 2: Já existe uma peça selecionada, tentando mover
+        }
         else {
-
-            // Se clicar na mesma peça, cancela a seleção
             if (linhaOrigem == linha && colOrigem == col) {
                 cancelarSelecao();
                 return;
@@ -310,7 +265,6 @@ private void tratarClique(int linha, int col) {
                     SwingUtilities.invokeLater(this::jogadaDaIA);
                 }
             } else {
-                // Se o movimento for inválido (ex: clicar em cima de outra peça ou destino errado)
                 cancelarSelecao();
             }
         }
@@ -319,14 +273,12 @@ private void tratarClique(int linha, int col) {
     private void cancelarSelecao() {
         linhaOrigem = -1;
         colOrigem = -1;
-        
-        // Restaura as cores originais de todo o tabuleiro para apagar os rastros azuis e amarelos
         for (int i = 0; i < TAMANHO; i++) {
             for (int j = 0; j < TAMANHO; j++) {
                 if ((i + j) % 2 == 0) {
-                    tabuleiroInterface[i][j].setBackground(new Color(235, 235, 208)); // Bege
+                    tabuleiroInterface[i][j].setBackground(new Color(235, 235, 208));
                 } else {
-                    tabuleiroInterface[i][j].setBackground(new Color(119, 149, 86));  // Verde
+                    tabuleiroInterface[i][j].setBackground(new Color(119, 149, 86));
                 }
             }
         }
@@ -345,7 +297,6 @@ private void tratarClique(int linha, int col) {
 
     private void construirArvore(Node node, int nivelAtual) {
         
-        // 1. Condição de parada rigorosa na Dificuldade escolhida pelo usuário.
         if (nivelAtual >= dificuldade || node.getTabuleiro().jogoAcabou()) {
             return;
         }
@@ -353,18 +304,14 @@ private void tratarClique(int linha, int col) {
         java.util.List<Tabuleiro.Jogada> jogadas = node.getTabuleiro().getJogadasPossiveis(node.isTurn());
         if (jogadas.isEmpty()) return;
 
-        // 2. Percorre todas as jogadas reais e constrói a árvore (O BLOCO ALEATÓRIO FOI EXCLUÍDO)
         for (Tabuleiro.Jogada j : jogadas) {
             Node child = new Node();
             child.setJogada(j);
             child.setTurn(!node.isTurn()); // Alterna o turno
-            
             Tabuleiro childTab = node.getTabuleiro().clone();
             childTab.fazerMovimento(j);
             child.setTabuleiro(childTab);
-            
             node.addChild(child);
-            
             construirArvore(child, nivelAtual + 1);
         }
     }
@@ -438,10 +385,6 @@ private void tratarClique(int linha, int col) {
         SwingUtilities.invokeLater(() -> new MainInterfaceGrafica(finalDif, finalIaBrancas));
     }
 
-    /*
-     * Atualiza a interface gráfica com base na matriz lógica do Tabuleiro. Este
-     * método será chamado após cada jogada da IA.
-     */
     public void sincronizarInterface() {
         for (int i = 0; i < TAMANHO; i++) {
             for (int j = 0; j < TAMANHO; j++) {
@@ -459,13 +402,11 @@ private void tratarClique(int linha, int col) {
             this.tipoPeca = tipo;
             repaint();
         }
-
         @Override
         protected void paintComponent(Graphics g) {
             super.paintComponent(g);
             Graphics2D g2 = (Graphics2D) g;
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
             int margem = 10;
             // Brancas
             if (tipoPeca == '1' || tipoPeca == '3') {

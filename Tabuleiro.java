@@ -45,11 +45,10 @@ public class Tabuleiro implements Cloneable {
         }
     }
 
-    // Representa um movimento possível
     public static class Jogada {
         int r1, c1;
         int r2, c2;
-        List<int[]> capturas; // Lista de posições capturadas neste movimento longo
+        List<int[]> capturas;
 
         public Jogada(int r1, int c1, int r2, int c2) {
             this.r1 = r1; this.c1 = c1;
@@ -91,7 +90,6 @@ public class Tabuleiro implements Cloneable {
             return jogadas;
         }
 
-        // Movimentos simples
         for (int i = 0; i < TAMANHO; i++) {
             for (int j = 0; j < TAMANHO; j++) {
                 char peca = matriz[i][j];
@@ -110,8 +108,8 @@ public class Tabuleiro implements Cloneable {
                     int dc = dirsC[d];
 
                     if (!isDama) {
-                        if (isBranca && dr > 0) continue; // peão branco só vai pra cima (linha menor)
-                        if (!isBranca && dr < 0) continue; // peão preto só vai pra baixo (linha maior)
+                        if (isBranca && dr > 0) continue;
+                        if (!isBranca && dr < 0) continue;
 
                         int nr = i + dr;
                         int nc = j + dc;
@@ -127,10 +125,10 @@ public class Tabuleiro implements Cloneable {
                                 if (matriz[nr][nc] == '0') {
                                     jogadas.add(new Jogada(i, j, nr, nc));
                                 } else {
-                                    break; // bloqueado por qualquer peça
+                                    break;
                                 }
                             } else {
-                                break; // fora do tabuleiro
+                                break;
                             }
                         }
                     }
